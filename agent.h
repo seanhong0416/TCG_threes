@@ -45,8 +45,10 @@ protected:
 	typedef std::string key;
 	struct value {
 		std::string value;
+		//conversion operator, allow object to be explicitly or implicitly casted to string
 		operator std::string() const { return value; }
 		template<typename numeric, typename = typename std::enable_if<std::is_arithmetic<numeric>::value, numeric>::type>
+		//stod => string to double
 		operator numeric() const { return numeric(std::stod(value)); }
 	};
 	std::map<key, value> meta;
@@ -174,4 +176,38 @@ public:
 
 private:
 	std::array<int, 4> opcode;
+};
+
+/**
+* heuristic player i.e., slider
+* select a action based on our heuristic policy
+*/
+class heuristic_slider : public agent{
+public:
+	heuristic_slider(const std::string& args = "") : agent("name=slide role=slider " + args),
+		opcode({ 0, 1, 2, 3 }) {}
+	
+	virtual action take_action(const board& before) {
+		//check
+		//std::cout << "took action in heuristic slider" << std::endl;
+
+		board::reward best_reward = -1;
+		int best_action = -1;
+
+		for(int op:opcode){
+			board::reward reward = board(before).slide(op);
+			if(reward > best_reward){
+				best_action = op;
+				best_reward = reward;
+			}
+		}
+
+		if(best_reward != -1) return action::slide(best_action);
+		else return action();
+	}
+
+
+private:
+	std::array<int,4> opcode;
+
 };

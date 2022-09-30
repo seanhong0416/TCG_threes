@@ -27,14 +27,21 @@ int main(int argc, const char* argv[]) {
 	std::string load_path, save_path;
 	for (int i = 1; i < argc; i++) {
 		std::string arg = argv[i];
+		//test
+		//std::cout << argv[i] << std::endl;
 		auto match_arg = [&](std::string flag) -> bool {
 			auto it = arg.find_first_not_of('-');
+			//test
+			//std::cout << it << " " << flag << " " << arg.find(flag,it) << std::endl;
 			return arg.find(flag, it) == it;
 		};
 		auto next_opt = [&]() -> std::string {
 			auto it = arg.find('=') + 1;
 			return it ? arg.substr(it) : argv[++i];
 		};
+		//test
+		//std::cout << "debug" << match_arg("limit") << " " << match_arg("load") << std::endl;
+
 		if (match_arg("total")) {
 			total = std::stoull(next_opt());
 		} else if (match_arg("block")) {
@@ -61,7 +68,7 @@ int main(int argc, const char* argv[]) {
 		if (stats.is_finished()) stats.summary();
 	}
 
-	random_slider slide(slide_args);
+	heuristic_slider slide(slide_args);
 	random_placer place(place_args);
 
 	while (!stats.is_finished()) {
