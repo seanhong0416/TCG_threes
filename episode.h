@@ -123,6 +123,7 @@ protected:
 
 	struct move {
 		action code;
+		//int
 		board::reward reward;
 		time_t time;
 		move(action code = {}, board::reward reward = 0, time_t time = 0) : code(code), reward(reward), time(time) {}

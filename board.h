@@ -144,6 +144,7 @@ public:
 				if (t0 == 0) {
 					t0 = t1;
 					t1 = 0;
+					//|= moved = moved | (t0 != 0)
 					moved |= (t0 != 0);
 				} else if (t1 != 0 && ((t0 + t1 == 3) || (t0 == t1 && t0 >= 3 && t0 < 14))) {
 					t0 = std::max(t0, t1) + 1;
