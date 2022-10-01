@@ -9,6 +9,7 @@
 
 #pragma once
 #include <string>
+#include <array>
 #include <random>
 #include <sstream>
 #include <map>
@@ -217,28 +218,107 @@ public:
 	heuristic_slider_kai(const std::string& args = "") : agent("name=slide role=slider " + args),
 		opcode({ 0, 1, 2, 3 }) {}
 	
+	int find_empty_squares(const board& after){
+		int empty_square_count = 0;
+			for(int i=0;i<16;i++){
+				if(after(i) == 0){
+					empty_square_count++;
+				}
+			}
+		return empty_square_count;
+	}
+
+	int find_monotonic_structure(const board& after, int r, int c){
+		//initialization
+		int best_len = 0;
+		int len = 0;
+		monotonic_visited[r][c] = true;
+		//basic step
+		if(after[r][c] == 0)
+			return 0;
+		//search up
+		if(
+			r-1 >= 0 && 
+			monotonic_visited[r-1][c] == false && 
+			(after[r-1][c] <= after[r][c] || 
+			(after[r][c] == 1 && after[r-1][c] == 2))
+		){
+			len = find_monotonic_structure(after, r-1, c);
+			if(len > best_len) best_len = len;
+		}
+		//search right
+		if(
+			c+1 < 4 && 
+			monotonic_visited[r][c+1] == false &&
+			(after[r][c+1] <= after[r][c] || 
+			(after[r][c] == 1 && after[r][c+1] == 2))
+		){
+			len = find_monotonic_structure(after, r, c+1);
+			if(len > best_len) best_len = len;
+		}
+		//search down
+		if(
+			r+1 < 4 && 
+			monotonic_visited[r+1][c] == false &&
+			(after[r+1][c] <= after[r][c] || 
+			(after[r][c] == 1 && after[r+1][c] == 2))
+		){
+			len = find_monotonic_structure(after, r+1, c);
+			if(len > best_len) best_len = len;
+		}
+		//search left
+		if(
+			c-1 >= 0 && 
+			monotonic_visited[r][c-1] == false &&
+			(after[r][c-1] <= after[r][c] || 
+			(after[r][c] == 1 && after[r][c-1] == 2))
+		){
+			len = find_monotonic_structure(after, r, c-1);
+			if(len > best_len) best_len = len;
+		}
+
+		return best_len + 1;
+	}
+
 	virtual action take_action(const board& before) {
 		//coef
 		int empty_square_coef = 5;
 		if(meta.find("empty_square_coef") != meta.end())
 			empty_square_coef = meta["empty_square_coef"];
+		int monotonic_structure_coef = 1;
+		if(meta.find("monotonic_structure_coef") != meta.end())
+			monotonic_structure_coef = meta["monotonic_structure_coef"];
 
+		//variables
 		board::reward best_reward = -1;
 		int best_action = -1;
+		int len = 0;
+		int best_len = 0;
 
 		for(int op:opcode){
 			board after = board(before);
 			board::reward reward = after.slide(op);
 
 			//empty squares
-			int empty_square_count = 0;
-			for(int i=0;i<16;i++){
-				if(after(i) == 0){
-					empty_square_count++;
+			reward += find_empty_squares(after) * empty_square_coef;
+
+			//find longest monotonic structure
+			for(int r=0;r<4;r++){
+				for(int c=0;c<4;c++){
+					//initialize visited array
+					for(int i=0;i<4;i++){
+						for(int j=0;j<4;j++){
+							monotonic_visited[i][j] = 0;
+						}
+					}
+					//find the length of monotonic structure starting from after[r][c]
+					len = find_monotonic_structure(after, r, c);
+					if(len > best_len) best_len = len;
 				}
 			}
-			reward += empty_square_count * empty_square_coef;
+			reward += best_len * monotonic_structure_coef;
 
+			//find the action with best reward
 			if(reward > best_reward){
 				best_action = op;
 				best_reward = reward;
@@ -249,8 +329,8 @@ public:
 		else return action();
 	}
 
-
 private:
 	std::array<int,4> opcode;
+	std::array<std::array<bool, 4>, 4> monotonic_visited;
 
 };
