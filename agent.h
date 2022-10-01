@@ -219,10 +219,9 @@ public:
 	
 	virtual action take_action(const board& before) {
 		//coef
-		const int empty_square_coef = 5;
-		
-		//check
-		//std::cout << "took action in heuristic slider" << std::endl;
+		int empty_square_coef = 5;
+		if(meta.find("empty_square_coef") != meta.end())
+			empty_square_coef = meta["empty_square_coef"];
 
 		board::reward best_reward = -1;
 		int best_action = -1;
@@ -231,7 +230,6 @@ public:
 			board after = board(before);
 			board::reward reward = after.slide(op);
 
-			//add other factor to the value of that state
 			//empty squares
 			int empty_square_count = 0;
 			for(int i=0;i<16;i++){
