@@ -179,8 +179,8 @@ private:
 };
 
 /**
-* heuristic player i.e., slider
-* select a action based on our heuristic policy
+* simple heuristic player
+* selects next move based on the score of next state
 */
 class heuristic_slider : public agent{
 public:
@@ -196,6 +196,51 @@ public:
 
 		for(int op:opcode){
 			board::reward reward = board(before).slide(op);
+			if(reward > best_reward){
+				best_action = op;
+				best_reward = reward;
+			}
+		}
+
+		if(best_reward != -1) return action::slide(best_action);
+		else return action();
+	}
+
+
+private:
+	std::array<int,4> opcode;
+
+};
+
+class heuristic_slider_kai : public agent{
+public:
+	heuristic_slider_kai(const std::string& args = "") : agent("name=slide role=slider " + args),
+		opcode({ 0, 1, 2, 3 }) {}
+	
+	virtual action take_action(const board& before) {
+		//coef
+		const int empty_square_coef = 5;
+		
+		//check
+		//std::cout << "took action in heuristic slider" << std::endl;
+
+		board::reward best_reward = -1;
+		int best_action = -1;
+
+		for(int op:opcode){
+			board after = board(before);
+			board::reward reward = after.slide(op);
+
+			//add other factor to the value of that state
+			//empty squares
+			int empty_square_count = 0;
+			for(int i=0;i<16;i++){
+				if(after(i) == 0){
+					empty_square_count++;
+				}
+			}
+			reward += empty_square_count * empty_square_coef;
+
 			if(reward > best_reward){
 				best_action = op;
 				best_reward = reward;
