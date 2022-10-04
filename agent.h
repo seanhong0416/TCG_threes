@@ -216,7 +216,28 @@ private:
 class heuristic_slider_kai : public agent{
 public:
 	heuristic_slider_kai(const std::string& args = "") : agent("name=slide role=slider " + args),
-		opcode({ 0, 1, 2, 3 }) {}
+		opcode({ 0, 1, 2, 3 }) {
+			if(meta.find("empty_square_coef") != meta.end())
+				empty_square_coef = meta["empty_square_coef"];
+			if(meta.find("monotonic_structure_coef") != meta.end())
+				monotonic_structure_coef = meta["monotonic_structure_coef"];
+			if(meta.find("largest_placement_value_multiplier") != meta.end())
+				largest_placement_value_multiplier = meta["largest_placement_value_multiplier"];
+			//create the value table for largest tile
+			for(int i=0;i<4;i++){
+				for(int j=0;j<4;j++){
+					largest_placement_value[i][j] = 1;
+				}
+			}
+			for(int i=0;i<4;i++){
+				largest_placement_value[i][0] += largest_placement_value_multiplier;
+				largest_placement_value[i][3] += largest_placement_value_multiplier;
+			}
+			for(int j=0;j<4;j++){
+				largest_placement_value[0][j] += largest_placement_value_multiplier;
+				largest_placement_value[0][j] += largest_placement_value_multiplier;
+			}
+		}
 	
 	int find_empty_squares(const board& after){
 		int empty_square_count = 0;
@@ -228,72 +249,69 @@ public:
 		return empty_square_count;
 	}
 
-	int find_monotonic_structure(const board& after, int r, int c){
+	int find_monotonic_structure(const board& after, int r, int c, unsigned int last_tile){
 		//initialization
 		int best_len = 0;
 		int len = 0;
 		monotonic_visited[r][c] = true;
 		//basic step
-		if(after[r][c] == 0)
-			return 0;
+		//if(last_tile == 0)
+		//	return 0;
+
 		//search up
 		if(
 			r-1 >= 0 && 
 			monotonic_visited[r-1][c] == false && 
-			(after[r-1][c] <= after[r][c] || 
+			(after[r-1][c] <= last_tile || 
 			(after[r][c] == 1 && after[r-1][c] == 2))
-		){
-			len = find_monotonic_structure(after, r-1, c);
+		){	
+			len = find_monotonic_structure(after, r-1, c, (after[r][c]==0)?last_tile:after[r][c]);
 			if(len > best_len) best_len = len;
 		}
 		//search right
 		if(
 			c+1 < 4 && 
 			monotonic_visited[r][c+1] == false &&
-			(after[r][c+1] <= after[r][c] || 
+			(after[r][c+1] <= last_tile || 
 			(after[r][c] == 1 && after[r][c+1] == 2))
 		){
-			len = find_monotonic_structure(after, r, c+1);
+			len = find_monotonic_structure(after, r, c+1, (after[r][c]==0)?last_tile:after[r][c]);
 			if(len > best_len) best_len = len;
 		}
 		//search down
 		if(
 			r+1 < 4 && 
 			monotonic_visited[r+1][c] == false &&
-			(after[r+1][c] <= after[r][c] || 
+			(after[r+1][c] <= last_tile || 
 			(after[r][c] == 1 && after[r+1][c] == 2))
 		){
-			len = find_monotonic_structure(after, r+1, c);
+			len = find_monotonic_structure(after, r+1, c, (after[r][c]==0)?last_tile:after[r][c]);
 			if(len > best_len) best_len = len;
 		}
 		//search left
 		if(
 			c-1 >= 0 && 
 			monotonic_visited[r][c-1] == false &&
-			(after[r][c-1] <= after[r][c] || 
+			(after[r][c-1] <= last_tile || 
 			(after[r][c] == 1 && after[r][c-1] == 2))
 		){
-			len = find_monotonic_structure(after, r, c-1);
+			len = find_monotonic_structure(after, r, c-1, (after[r][c]==0)?last_tile:after[r][c]);
 			if(len > best_len) best_len = len;
 		}
 
-		return best_len + 1;
+		//std::cout << after[r][c] << std::endl;
+		return best_len + (after[r][c]==0)?0:1;
 	}
 
 	virtual action take_action(const board& before) {
-		//coef
-		int empty_square_coef = 5;
-		if(meta.find("empty_square_coef") != meta.end())
-			empty_square_coef = meta["empty_square_coef"];
-		int monotonic_structure_coef = 1;
-		if(meta.find("monotonic_structure_coef") != meta.end())
-			monotonic_structure_coef = meta["monotonic_structure_coef"];
 
 		//variables
 		board::reward best_reward = -1;
 		int best_action = -1;
 		int len = 0;
 		int best_len = 0;
+		int largest_x = 0, largest_y = 0;
+		unsigned int largest_value = 0;
 
 		for(int op:opcode){
 			board after = board(before);
@@ -312,11 +330,25 @@ public:
 						}
 					}
 					//find the length of monotonic structure starting from after[r][c]
-					len = find_monotonic_structure(after, r, c);
+					len = find_monotonic_structure(after, r, c, after[r][c]);
 					if(len > best_len) best_len = len;
 				}
 			}
 			reward += best_len * monotonic_structure_coef;
+
+			//position of largest tile
+			//find the position of the largest tile 
+			for(int i=0;i<4;i++){
+				for(int j=0;j<4;j++){
+					if(after[i][j] > largest_value){
+						largest_value = after[i][j];
+						largest_x = i;
+						largest_y = j;
+					}
+				}
+			}
+			//plus the position value to our reward using position placement value table
+			reward += largest_placement_value[largest_x][largest_y];
 
 			//find the action with best reward
 			if(reward > best_reward){
@@ -332,5 +364,8 @@ public:
 private:
 	std::array<int,4> opcode;
 	std::array<std::array<bool, 4>, 4> monotonic_visited;
-
+	std::array<std::array<int, 4>, 4> largest_placement_value;
+	int empty_square_coef = 5;
+	int monotonic_structure_coef = 1;
+	int largest_placement_value_multiplier = 2;
 };
