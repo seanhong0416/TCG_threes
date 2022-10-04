@@ -288,7 +288,7 @@ public:
 		int monotonic_structure_coef = 1;
 		if(meta.find("monotonic_structure_coef") != meta.end())
 			monotonic_structure_coef = meta["monotonic_structure_coef"];
-
+		
 		//variables
 		board::reward best_reward = -1;
 		int best_action = -1;
