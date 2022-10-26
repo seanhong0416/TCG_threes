@@ -94,7 +94,10 @@ protected:
 		for (char& ch : res)
 			if (!std::isdigit(ch)) ch = ' ';
 		std::stringstream in(res);
-		for (size_t size; in >> size; net.emplace_back(size));
+		for (size_t size; in >> size; net.emplace_back(size)){
+			//test
+			//printf("%lu\n",size);
+		}
 	}
 	virtual void load_weights(const std::string& path) {
 		std::ifstream in(path, std::ios::in | std::ios::binary);
@@ -117,6 +120,81 @@ protected:
 protected:
 	std::vector<weight> net;
 	float alpha;
+};
+
+class four_tuple_agent : public weight_agent{
+public:
+	four_tuple_agent(const std::string& args = "") : weight_agent(args),opcode({ 0, 1, 2, 3 }) {
+		//test
+		//std::cout << "size of weights: " << net.size() << " " << net[0].size() << " " << net[0][0] << std::endl;
+		//std::cout << net_index(1,1,1,1) << std::endl;
+	}
+
+	virtual void open_episode(const std::string& flag = "") {
+		//reset private data members
+		episode_boards.clear();
+		episode_rewards.clear();
+	}
+
+	virtual action take_action(const board& b) { 
+		board::reward best_reward = -1;
+		board::reward reward;
+		int best_action = -1;
+		int best_after_state_value = -1;
+		board best_after;
+		board after;
+
+		for(int op:opcode){
+			after = b;
+			reward = after.slide(op);
+			int after_state_value = calculate_state_value(after) + reward;
+
+			if(after_state_value > best_after_state_value){
+				//To compare
+				best_after_state_value = after_state_value;
+				//To return the action we choose
+				best_action = op;
+				//To store in the episode_rewards vector
+				best_reward = reward;
+				//To store in the episode_boards vector
+				best_after = after;
+			}
+		}
+		if(best_reward != -1){
+			//store the after board and reward into our vector sothat
+			episode_boards.push_back(best_after);
+			episode_rewards.push_back(best_reward);
+			return action::slide(best_action);
+		}
+		else return action();
+	}
+
+	int calculate_state_value(const board& b){
+		int state_value = 0;
+		int index_base, index;
+
+		for(int i=0;i<4;i++){
+			index_base = 4*i;
+			//plus the tuple at row i
+			index = net_index(b(index_base), b(index_base+1), b(index_base+2), b(index_base+3));
+			state_value += net[i][index];
+			//plus the tuple at column i
+			index = net_index(b(i+0), b(i+4), b(i+8), b(i+12));
+			state_value += net[4+i][index];
+		}
+
+		return state_value;
+	}
+
+	int net_index(int index0, int index1, int index2, int index3){
+		return index0 | (index1 << 4) | (index2 << 8) | (index3 << 12); 
+	}
+
+private:
+	std::vector<board> episode_boards;
+	std::vector<int> episode_rewards;
+	std::array<int, 4> opcode;
+
 };
 
 /**
@@ -206,7 +284,6 @@ public:
 		if(best_reward != -1) return action::slide(best_action);
 		else return action();
 	}
-
 
 private:
 	std::array<int,4> opcode;

@@ -68,7 +68,7 @@ int main(int argc, const char* argv[]) {
 		if (stats.is_finished()) stats.summary();
 	}
 
-	heuristic_slider_kai slide(slide_args);
+	four_tuple_agent slide(slide_args);
 	random_placer place(place_args);
 
 	while (!stats.is_finished()) {
