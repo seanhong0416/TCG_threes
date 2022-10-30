@@ -87,7 +87,6 @@ int main(int argc, const char* argv[]) {
 		}
 		agent& win = game.last_turns(slide, place);
 		stats.close_episode(win.name());
-
 		slide.close_episode(win.name());
 		place.close_episode(win.name());
 	}

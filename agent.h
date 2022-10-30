@@ -75,7 +75,7 @@ protected:
  */
 class weight_agent : public agent {
 public:
-	weight_agent(const std::string& args = "") : agent(args), alpha(0) {
+	weight_agent(const std::string& args = "") : agent(args), alpha(0.0125) {
 		if (meta.find("init") != meta.end())
 			init_weights(meta["init"]);
 		if (meta.find("load") != meta.end())
@@ -134,22 +134,87 @@ public:
 		//reset private data members
 		episode_boards.clear();
 		episode_rewards.clear();
+		episode_values.clear();
+	}
+
+	virtual void close_episode(const std::string& flag = "") {
+		//start training our agent
+		episode_rewards.push_back(0);
+		episode_values.push_back(0);
+		int len = episode_boards.size();
+		//printf("episode_boards length = %lu, episode_rewards length = %lu, episode_values length = %lu\n", episode_boards.size(),episode_rewards.size(),episode_values.size());
+		/*
+		actual episode length = n
+		episode_boards size = n
+		episode_rewards size = n+1
+		episode_values size = n+1
+		*/
+		for(int i = len-1;i >= 0;i--){
+			double update_value =  alpha * (episode_values[i+1] + episode_rewards[i+1] - episode_values[i]);
+			//update_net
+			//printf("update value before enter function = %lf\n",update_value);
+			update_net(episode_boards[i], update_value);
+			//printf("reward = %d, state value = %d, i = %d\n",episode_rewards[i+1], episode_values[i+1], i);
+			/*
+			printf("=====board being update=====\n");
+			for(int j=0;j<4;j++){
+				for(int k=0;k<4;k++){
+					printf("%d ", episode_boards[i][j][k]);
+				}
+				printf("\n");
+			}
+			*/
+		}
+	}
+
+	void update_net(board& b, double update_value){
+		int index_base, index;
+		//printf("update value : %lf\n", update_value);
+
+		for(int i=0;i<4;i++){
+			index_base = 4*i;
+			//update the tuple at row i
+			index = net_index(b(index_base), b(index_base+1), b(index_base+2), b(index_base+3));
+			net[i][index] += update_value;
+			//printf("updating %d %d, value = %lf\n",i,index,net[i][index]);
+
+			//update the tuple at column i
+			index = net_index(b(i+0), b(i+4), b(i+8), b(i+12));
+			net[i+4][index] += update_value;
+		}
 	}
 
 	virtual action take_action(const board& b) { 
 		board::reward best_reward = -1;
 		board::reward reward;
 		int best_action = -1;
-		int best_after_state_value = -1;
+		double best_after_state_value = -1;
 		board best_after;
 		board after;
 
 		for(int op:opcode){
 			after = b;
 			reward = after.slide(op);
-			int after_state_value = calculate_state_value(after) + reward;
-
-			if(after_state_value > best_after_state_value){
+			double after_state_value = calculate_state_value(after) + reward;
+			/*
+			printf("=====board before=====\n");
+			for(int i=0;i<4;i++){
+				for(int j=0;j<4;j++){
+					printf("%d ", b[i][j]);
+				}
+				printf("\n");
+			}
+			
+			
+			printf("=====board after=====\n");
+			for(int i=0;i<4;i++){
+				for(int j=0;j<4;j++){
+					printf("%d ", after[i][j]);
+				}
+				printf("\n");
+			}
+			*/
+			if((after_state_value > best_after_state_value) && (reward != -1)){
 				//To compare
 				best_after_state_value = after_state_value;
 				//To return the action we choose
@@ -159,18 +224,23 @@ public:
 				//To store in the episode_boards vector
 				best_after = after;
 			}
+			//printf("op:%d\n",op);
+			//printf("reward:%d, after_state_value:%lf\n", reward, after_state_value);
+			//if(reward!=after_state_value) printf("bingo!\n");
 		}
 		if(best_reward != -1){
 			//store the after board and reward into our vector sothat
 			episode_boards.push_back(best_after);
 			episode_rewards.push_back(best_reward);
+			episode_values.push_back(best_after_state_value);
+			//printf("return op = %d\n",best_action);
 			return action::slide(best_action);
 		}
 		else return action();
 	}
 
-	int calculate_state_value(const board& b){
-		int state_value = 0;
+	double calculate_state_value(const board& b){
+		double state_value = 0;
 		int index_base, index;
 
 		for(int i=0;i<4;i++){
@@ -192,6 +262,7 @@ public:
 
 private:
 	std::vector<board> episode_boards;
+	std::vector<int> episode_values;
 	std::vector<int> episode_rewards;
 	std::array<int, 4> opcode;
 
