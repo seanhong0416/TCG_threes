@@ -188,13 +188,14 @@ public:
 		board::reward best_reward = -1;
 		board::reward reward;
 		int best_action = -1;
-		double best_after_state_value = -1;
+		double best_after_state_value = -1000;
 		board best_after;
 		board after;
 
 		for(int op:opcode){
 			after = b;
 			reward = after.slide(op);
+			if(reward == -1) continue;
 			double after_state_value = calculate_state_value(after) + reward;
 			/*
 			printf("=====board before=====\n");
@@ -214,7 +215,7 @@ public:
 				printf("\n");
 			}
 			*/
-			if((after_state_value > best_after_state_value) && (reward != -1)){
+			if(after_state_value > best_after_state_value || best_reward == -1){
 				//To compare
 				best_after_state_value = after_state_value;
 				//To return the action we choose
