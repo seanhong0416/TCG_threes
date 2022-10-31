@@ -269,6 +269,245 @@ private:
 
 };
 
+class six_tuple_agent : public weight_agent{
+public:
+	six_tuple_agent(const std::string& args = "") : weight_agent(args),opcode({ 0, 1, 2, 3 }) {
+		//test
+		//std::cout << "size of weights: " << net.size() << " " << net[0].size() << " " << net[0][0] << std::endl;
+		//std::cout << net_index(1,1,1,1) << std::endl;
+		alpha = 0.1/32;
+		//initialize tuple index
+		tuple_index[0] = {0,1,2,3,4,5};
+		tuple_index[1] = {4,5,6,7,8,9};
+		tuple_index[2] = {5,6,7,9,10,11};
+		tuple_index[3] = {9,10,11,13,14,15};
+		//printf("initialization done\n");
+	}
+
+	virtual void open_episode(const std::string& flag = "") {
+		//reset private data members
+		episode_boards.clear();
+		episode_rewards.clear();
+		episode_values.clear();
+	}
+
+	virtual void close_episode(const std::string& flag = "") {
+		//start training our agent
+		episode_rewards.push_back(0);
+		episode_values.push_back(0);
+		int len = episode_boards.size();
+		//printf("episode_boards length = %lu, episode_rewards length = %lu, episode_values length = %lu\n", episode_boards.size(),episode_rewards.size(),episode_values.size());
+		/*
+		actual episode length = n
+		episode_boards size = n
+		episode_rewards size = n+1
+		episode_values size = n+1
+		*/
+		for(int i = len-1;i >= 0;i--){
+			double update_value =  alpha * (episode_values[i+1] + episode_rewards[i+1] - episode_values[i]);
+			//update_net
+			//printf("update value before enter function = %lf\n",update_value);
+			update_net(episode_boards[i], update_value);
+			//printf("reward = %d, state value = %d, i = %d\n",episode_rewards[i+1], episode_values[i+1], i);
+			/*
+			printf("=====board being update=====\n");
+			for(int j=0;j<4;j++){
+				for(int k=0;k<4;k++){
+					printf("%d ", episode_boards[i][j][k]);
+				}
+				printf("\n");
+			}
+			*/
+		}
+	}
+
+	void update_net(board& b, double update_value){
+		//printf("update value : %lf\n", update_value);
+
+		board  fb = b;
+
+		for(int i=0;i<4;i++){
+			int index = 0;
+			for(int j=0;j<6;j++){
+				index |= fb(tuple_index[i][j]) << (4*j);
+			}
+
+			net[i][index] += update_value;
+		}
+
+		for(int k=1;k<=3;k++){
+			fb.rotate_clockwise();
+
+			for(int i=0;i<4;i++){
+				int index = 0;
+				for(int j=0;j<6;j++){
+					index |= fb(tuple_index[i][j]) << (4*j);
+				}
+
+				net[k*4+i][index] += update_value;
+			}
+		}
+
+		fb = b;
+		fb.reflect_horizontal();
+		
+		for(int i=0;i<4;i++){
+			int index = 0;
+			for(int j=0;j<6;j++){
+				index |= fb(tuple_index[i][j]) << (4*j);
+			}
+
+			net[16+i][index] += update_value;
+		}
+
+		for(int k=1;k<=3;k++){
+			fb.rotate_clockwise();
+
+			for(int i=0;i<4;i++){
+				int index = 0;
+				for(int j=0;j<6;j++){
+					index |= fb(tuple_index[i][j]) << (4*j);
+				}
+
+				net[16+k*4+i][index] += update_value;
+			}
+		}
+
+	}
+
+	virtual action take_action(const board& b) { 
+		board::reward best_reward = -1;
+		board::reward reward;
+		int best_action = -1;
+		double best_after_state_value = -1000;
+		board best_after;
+		board after;
+
+		for(int op:opcode){
+			after = b;
+			reward = after.slide(op);
+			if(reward == -1) continue;
+			double after_state_value = calculate_state_value(after) + reward;
+			/*
+			printf("=====board before=====\n");
+			for(int i=0;i<4;i++){
+				for(int j=0;j<4;j++){
+					printf("%d ", b[i][j]);
+				}
+				printf("\n");
+			}
+			*/
+			/*
+			printf("=====board after=====\n");
+			for(int i=0;i<4;i++){
+				for(int j=0;j<4;j++){
+					printf("%d ", after[i][j]);
+				}
+				printf("\n");
+			}
+			after.rotate_clockwise();
+			printf("=====after rotation=====\n");
+			for(int i=0;i<4;i++){
+				for(int j=0;j<4;j++){
+					printf("%d ", after[i][j]);
+				}
+				printf("\n");
+			}
+			*/
+			if(after_state_value > best_after_state_value || best_reward == -1){
+				//To compare
+				best_after_state_value = after_state_value;
+				//To return the action we choose
+				best_action = op;
+				//To store in the episode_rewards vector
+				best_reward = reward;
+				//To store in the episode_boards vector
+				best_after = after;
+			}
+			//printf("op:%d\n",op);
+			//printf("reward:%d, after_state_value:%lf\n", reward, after_state_value);
+			//if(reward!=after_state_value) printf("bingo!\n");
+		}
+		if(best_reward != -1){
+			//store the after board and reward into our vector sothat
+			episode_boards.push_back(best_after);
+			episode_rewards.push_back(best_reward);
+			episode_values.push_back(best_after_state_value);
+			//printf("return op = %d\n",best_action);
+			return action::slide(best_action);
+		}
+		else return action();
+	}
+
+	double calculate_state_value(const board& b){
+		double state_value = 0;
+		board  fb = b;
+
+		for(int i=0;i<4;i++){
+			int index = 0;
+			for(int j=0;j<6;j++){
+				index |= fb(tuple_index[i][j]) << (4*j);
+			}
+
+			state_value += net[i][index];
+		}
+
+		for(int k=1;k<=3;k++){
+			fb.rotate_clockwise();
+
+			for(int i=0;i<4;i++){
+				int index = 0;
+				for(int j=0;j<6;j++){
+					index |= fb(tuple_index[i][j]) << (4*j);
+				}
+
+				state_value += net[k*4+i][index];
+			}
+		}
+
+		fb = b;
+		fb.reflect_horizontal();
+		
+		for(int i=0;i<4;i++){
+			int index = 0;
+			for(int j=0;j<6;j++){
+				index |= fb(tuple_index[i][j]) << (4*j);
+			}
+
+			state_value += net[16+i][index];
+		}
+
+		for(int k=1;k<=3;k++){
+			fb.rotate_clockwise();
+
+			for(int i=0;i<4;i++){
+				int index = 0;
+				for(int j=0;j<6;j++){
+					index |= fb(tuple_index[i][j]) << (4*j);
+				}
+
+				state_value += net[16+k*4+i][index];
+			}
+		}
+
+		return state_value;
+	}
+
+	/*
+	int net_index(int index0, int index1, int index2, int index3, int index4, int index5){
+		return index0 | (index1 << 4) | (index2 << 8) | (index3 << 12) | (index4 << 16) | (index5 << 20); 
+	}
+	*/
+
+private:
+	std::vector<board> episode_boards;
+	std::vector<int> episode_values;
+	std::vector<int> episode_rewards;
+	std::array<int, 4> opcode;
+	std::array<std::array<int, 6>,4> tuple_index;
+
+};
+
 /**
  * default random environment, i.e., placer
  * place the hint tile and decide a new hint tile
