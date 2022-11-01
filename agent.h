@@ -380,6 +380,7 @@ public:
 		board::reward reward;
 		int best_action = -1;
 		double best_after_state_value = -1000;
+		double best_episode_after_state_value = -1000;
 		board best_after;
 		board after;
 
@@ -387,7 +388,8 @@ public:
 			after = b;
 			reward = after.slide(op);
 			if(reward == -1) continue;
-			double after_state_value = calculate_state_value(after) + reward;
+			double episode_after_state_value = calculate_state_value(after);
+			double after_state_value = episode_after_state_value + reward;
 			/*
 			printf("=====board before=====\n");
 			for(int i=0;i<4;i++){
@@ -423,6 +425,8 @@ public:
 				best_reward = reward;
 				//To store in the episode_boards vector
 				best_after = after;
+				//To store in the episode_values vector
+				best_episode_after_state_value = episode_after_state_value;
 			}
 			//printf("op:%d\n",op);
 			//printf("reward:%d, after_state_value:%lf\n", reward, after_state_value);
@@ -432,7 +436,7 @@ public:
 			//store the after board and reward into our vector sothat
 			episode_boards.push_back(best_after);
 			episode_rewards.push_back(best_reward);
-			episode_values.push_back(best_after_state_value);
+			episode_values.push_back(best_episode_after_state_value);
 			//printf("return op = %d\n",best_action);
 			return action::slide(best_action);
 		}
