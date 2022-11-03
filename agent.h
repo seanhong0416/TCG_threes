@@ -344,7 +344,7 @@ public:
 					index |= fb(tuple_index[i][j]) << (4*j);
 				}
 
-				net[k*4+i][index] += update_value;
+				net[i][index] += update_value;
 			}
 		}
 
@@ -357,7 +357,7 @@ public:
 				index |= fb(tuple_index[i][j]) << (4*j);
 			}
 
-			net[16+i][index] += update_value;
+			net[i][index] += update_value;
 		}
 
 		for(int k=1;k<=3;k++){
@@ -369,7 +369,7 @@ public:
 					index |= fb(tuple_index[i][j]) << (4*j);
 				}
 
-				net[16+k*4+i][index] += update_value;
+				net[i][index] += update_value;
 			}
 		}
 
@@ -465,7 +465,7 @@ public:
 					index |= fb(tuple_index[i][j]) << (4*j);
 				}
 
-				state_value += net[k*4+i][index];
+				state_value += net[i][index];
 			}
 		}
 
@@ -478,7 +478,7 @@ public:
 				index |= fb(tuple_index[i][j]) << (4*j);
 			}
 
-			state_value += net[16+i][index];
+			state_value += net[i][index];
 		}
 
 		for(int k=1;k<=3;k++){
@@ -490,7 +490,7 @@ public:
 					index |= fb(tuple_index[i][j]) << (4*j);
 				}
 
-				state_value += net[16+k*4+i][index];
+				state_value += net[i][index];
 			}
 		}
 
